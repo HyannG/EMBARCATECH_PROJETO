@@ -8,14 +8,18 @@ Este projeto implementa um MP3 Player simples, utilizando o Raspberry Pi Pico W.
 - Diminuir o volume.
 - Parar a música.
 
+---
+
 ## Funcionalidades
 
 - Tocar quatro faixas diferentes.
 - O usuário escolhe qual música irá tocar pela direção do joystick.
-- O botão A diminui o volume da música.
-- O botão B aumenta o volume da música.
-- Apertar os dois botões ao mesmo tempo interrompe a música.
+- Aumenta volume.
+- Diminuir volume.
+- interromper.
 - O LED RGB brilha em uma cor dependendo da música selecionada.
+
+---
 
 ## Hardware Utilizado
 
@@ -25,7 +29,9 @@ Este projeto implementa um MP3 Player simples, utilizando o Raspberry Pi Pico W.
 - Botão A
 - Botão B
 - LED RGB
-- 
+
+---
+
 ## Software Utilizado
 
 - Raspberry Pi Pico SDK
@@ -36,18 +42,76 @@ Este projeto implementa um MP3 Player simples, utilizando o Raspberry Pi Pico W.
 - hardware/gpio
 - pico/time
 
-  ## Diagrama de Conexões
+---
 
-| Componente   | Pino no Raspberry Pi Pico W |
-|--------------|-----------------------------|
-| Buzzer       | GPIO 21                     |
-| LED RGB (R)  | GPIO 13                     |
-| LED RGB (G)  | GPIO 11                     |
-| LED RGB (B)  | GPIO 12                     |
-| Joystick (X) | ADC0 (GPIO 26)              |
-| Joystick (Y) | ADC1 (GPIO 27)              |
-| Botão A      | GPIO 5                      |
-| Botão B      | GPIO 6                      |
+## Manual de Utilização
+
+### Controles e Funcionalidades
+
+O MP3 Player implementado no Raspberry Pi Pico W pode ser controlado por meio de um joystick e dois botões. Abaixo estão as instruções detalhadas para interagir com o dispositivo:
+
+#### Botões
+
+- **Botão A**  
+  - **Ação**: Diminuir o volume.  
+  - **Uso**: Pressione o botão A uma vez para reduzir o volume da música em reprodução.
+
+- **Botão B**  
+  - **Ação**: Aumentar o volume.  
+  - **Uso**: Pressione o botão B uma vez para aumentar o volume da música em reprodução.
+
+- **Botão A + Botão B (pressionados simultaneamente)**  
+  - **Ação**: Parar a reprodução da música.  
+  - **Uso**: Pressione ambos os botões ao mesmo tempo para interromper a música que está tocando.
+
+#### Joystick
+
+O joystick é utilizado para selecionar a música a ser reproduzida. Cada direção do joystick corresponde a uma música específica:
+
+- **Joystick para cima**  
+  - **Música**: *Never Gonna Give You Up*.  
+  - **LED**: Brilha em verde.
+
+- **Joystick para baixo**  
+  - **Música**: *Tema da Pantera Cor de Rosa*.  
+  - **LED**: Brilha em rosa.
+
+- **Joystick para a esquerda**  
+  - **Música**: *Tema do Poderoso Chefão*.  
+  - **LED**: Brilha em uma branco.
+
+- **Joystick para a direita**  
+  - **Música**: *Tema do Darth Vader*.  
+  - **LED**: Brilha em vermelho.
+
+### LED RGB
+
+O LED RGB indica qual música está sendo reproduzida por meio de cores específicas. Cada música selecionada pelo joystick faz com que o LED brilhe em uma cor correspondente.
+
+---
+
+### Exemplo de Uso
+
+1. **Selecionar uma música**: Mova o joystick na direção desejada para escolher uma música. O LED RGB acenderá na cor correspondente à música selecionada.  
+2. **Ajustar o volume**: Utilize os botões A e B para diminuir ou aumentar o volume, respectivamente.  
+3. **Parar a música**: Pressione os botões A e B simultaneamente para interromper a reprodução.
+
+---
+
+### Diagrama de Conexões
+
+| Componente       | Pino no Raspberry Pi Pico W |
+|------------------|-----------------------------|
+| Buzzer           | GPIO 21                     |
+| LED RGB (R)      | GPIO 13                     |
+| LED RGB (G)      | GPIO 11                     |
+| LED RGB (B)      | GPIO 12                     |
+| Joystick (X)     | ADC0 (GPIO 26)              |
+| Joystick (Y)     | ADC1 (GPIO 27)              |
+| Botão A          | GPIO 5                      |
+| Botão B          | GPIO 6                      |
+
+---
 
 # Estrutura do Projeto
 
@@ -63,5 +127,8 @@ Este projeto implementa um MP3 Player simples, utilizando o Raspberry Pi Pico W.
 
 ## Fluxograma para utilização da placa
 
-![Fluxograma](https://github.com/user-attachments/assets/5cf21fd4-b705-4c91-8bc2-4bd4b922eedd)
+![Fluxograma](https://github.com/user-attachments/assets/507f6d8f-365f-49bd-a7e2-6e2554eded47)
+
+
+
 
