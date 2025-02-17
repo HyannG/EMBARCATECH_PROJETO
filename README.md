@@ -129,6 +129,10 @@ O LED RGB indica qual música está sendo reproduzida por meio de cores específ
 
 ![Fluxograma](https://github.com/user-attachments/assets/507f6d8f-365f-49bd-a7e2-6e2554eded47)
 
+## LINK DO GITHUB
+
+https://github.com/HyannG/EMBARCATECH_PROJETO
+
 
 
 
