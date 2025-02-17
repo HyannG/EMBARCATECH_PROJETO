@@ -25,7 +25,7 @@ Este projeto implementa um MP3 Player simples, utilizando o Raspberry Pi Pico W.
 - Botão A
 - Botão B
 - LED RGB
-
+- 
 ## Software Utilizado
 
 - Raspberry Pi Pico SDK
@@ -59,3 +59,9 @@ Este projeto implementa um MP3 Player simples, utilizando o Raspberry Pi Pico W.
 - **notas.h** # Header com definições de notas musicais
 - **PROJETO_EMBARCADO.c** # Código principal do projeto
 - **README.md** # Documentação do projeto
+
+
+## Fluxograma para utilização da placa
+
+![Fluxograma](https://github.com/user-attachments/assets/5cf21fd4-b705-4c91-8bc2-4bd4b922eedd)
+
