@@ -290,7 +290,6 @@ void play(int slice_num, int melodie[][2], int size, int tempo, const char *musi
     reset_display(ssd, frame_area); 
 }
 
-// Enum para identificar as músicas
 typedef enum {
     PINK_PANTHER,
     NEVER_GONNA_GIVE_YOU_UP,
