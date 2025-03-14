@@ -43,6 +43,9 @@ add_executable(MP3 MP3.c inc/ssd1306_i2c.c)
 pico_set_program_name(MP3 "MP3")
 pico_set_program_version(MP3 "0.1")
 
+#Generate PIO header
+pico_generate_pio_header(MP3 ${CMAKE_CURRENT_LIST_DIR}/ws2818b.pio)
+
 # Enable/disable output over UART/USB
 pico_enable_stdio_uart(MP3 0)
 pico_enable_stdio_usb(MP3 1)

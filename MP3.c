@@ -12,6 +12,19 @@
 #include "musicas.h"
 #include <stdlib.h>
 #include <stdio.h>
+#include "hardware/pio.h"
+#include "ws2818b.pio.h"
+#define LED_COUNT 25
+#define LED_PIN 7
+
+struct pixel_t {
+    uint8_t G, R, B;
+};
+typedef struct pixel_t pixel_t;
+pixel_t leds[LED_COUNT];
+
+PIO np_pio;
+uint sm;
 
 // PINOS
 const int VRX = 26;          
@@ -29,15 +42,43 @@ float volume_level = 0.5;
 uint32_t current_wrap = 0;
 #define MIC_PIN 28               
 const float SOUND_OFFSET = 1.65; 
-const float SOUND_THRESHOLD = 0.25; 
+const float SOUND_THRESHOLD = 0.5; 
 const float ADC_REF = 3.3;         
-const int ADC_RES = 4095;          
+const int ADC_RES = 4095;    
 
 bool music_playing = false;  
 bool is_muted = false;
 
-// Inicializar os LEDs
-void init_led() {
+// funções da matriz de led
+
+void npInit(uint pin) {
+    uint offset = pio_add_program(pio0, &ws2818b_program);
+    np_pio = pio0;
+    sm = pio_claim_unused_sm(np_pio, true);
+    ws2818b_program_init(np_pio, sm, offset, pin, 800000.f);
+    memset(leds, 0, sizeof(leds));
+}
+
+void npSetLED(uint index, uint8_t r, uint8_t g, uint8_t b) {
+    leds[index].R = r;
+    leds[index].G = g;
+    leds[index].B = b;
+}
+
+void npClear() {
+    memset(leds, 0, sizeof(leds));
+}
+
+void npWrite() {
+    for (uint i = 0; i < LED_COUNT; ++i) {
+        pio_sm_put_blocking(np_pio, sm, leds[i].G);
+        pio_sm_put_blocking(np_pio, sm, leds[i].R);
+        pio_sm_put_blocking(np_pio, sm, leds[i].B);
+    }
+}
+
+// Inicializar os sensores e atenuadores
+void init_all() {
     gpio_init(LED_RED);
     gpio_init(LED_GREEN);
     gpio_init(LED_BLUE);
@@ -47,10 +88,7 @@ void init_led() {
     gpio_put(LED_RED, 0);
     gpio_put(LED_GREEN, 0);
     gpio_put(LED_BLUE, 0);
-}
 
-// Inicializar todos os pinos de input
-void init_input() {
     adc_init();         
     adc_gpio_init(VRX); 
     adc_gpio_init(VRY); 
@@ -67,7 +105,7 @@ void init_input() {
     gpio_pull_up(BTN_VOL_UP);
 
     adc_gpio_init(MIC_PIN);
-    adc_select_input(2); // Canal ADC2 (GPIO28)     
+    adc_select_input(2);     
 }
 
 // Seta a cor do LED RGB
@@ -102,15 +140,51 @@ void pwm_set_freq(int freq) {
     pwm_set_chan_level(slice_num, chan, (uint)(current_wrap * volume_level * 0.6));
 }
 
+
+// Exibição do volume pela matriz de led
+void update_volume_leds() {
+    npClear();
+    if (!is_muted) {
+        int level = (int)(volume_level * 5.0f);
+        level = (level > 5) ? 5 : (level < 0) ? 0 : level;
+        
+        for (int row = 0; row < level; row++) {
+            for (int col = 0; col < 5; col++) {
+                int index = row * 5 + col;
+                npSetLED(index, 0, 50, 0); 
+            }
+        }
+    }
+    npWrite();
+}
+
+// Função para ativar/desativar o mudo
+void toggle_mute(uint slice_num, bool mute) {
+    is_muted = mute;
+    if (is_muted) {
+        pwm_set_enabled(slice_num, false); 
+        pwm_set_gpio_level(21, 0); 
+        gpio_set_dir(21, GPIO_IN); // Configura o pino como entrada para evitar ruídos
+    } else {
+        gpio_set_dir(21, GPIO_OUT); 
+        pwm_set_enabled(slice_num, true); 
+    }
+    update_volume_leds();
+    printf("Mudo: %s\n", is_muted ? "LIGADO" : "DESLIGADO");
+}
+
 // Função para atualizar o display com o nome da música
 void update_display_music(uint8_t *ssd, struct render_area *frame_area, const char *music_name) {
     memset(ssd, 0, ssd1306_buffer_length); // Limpa o display
     ssd1306_draw_string(ssd, 0, 0, "MP3 PLAYER");
     ssd1306_draw_string(ssd, 0, 16, music_name); 
+    if (is_muted) {
+        ssd1306_draw_string(ssd, 0, 32, "Mudo"); 
+    }
     render_on_display(ssd, frame_area);
 }
 
-// Função para voltar ao texto original do display
+// Função para resetar o display
 void reset_display(uint8_t *ssd, struct render_area *frame_area) {
     memset(ssd, 0, ssd1306_buffer_length); // Limpa o display
     ssd1306_draw_string(ssd, 0, 0, "MP3 PLAYER");
@@ -118,6 +192,7 @@ void reset_display(uint8_t *ssd, struct render_area *frame_area) {
     render_on_display(ssd, frame_area);
 }
 
+// função para desmutar com sons
 bool check_sound_trigger() {
     adc_select_input(2);
     uint16_t raw_adc = adc_read();
@@ -133,7 +208,6 @@ void play(int slice_num, int melodie[][2], int size, int tempo, const char *musi
     static bool prev_sw = true;
     int wholenote = (60000 * 4) / tempo;
 
-    // Atualiza o display com o nome da música
     update_display_music(ssd, frame_area, music_name);
 
     for (int i = 0; i < size; i++) {
@@ -156,17 +230,17 @@ void play(int slice_num, int melodie[][2], int size, int tempo, const char *musi
             bool btn_sw = !gpio_get(SW);
 
             if (is_muted && check_sound_trigger()) {
-                is_muted = false;
-                pwm_set_enabled(slice_num, true);
+                toggle_mute(slice_num, false); 
+                update_display_music(ssd, frame_area, music_name);
                 printf("Mudo DESLIGADO por detecção de som!\n");
-                sleep_ms(1000);
+                sleep_ms(1000); 
             }
 
             if (btn_sw && !prev_sw) {
-                is_muted = !is_muted;
+                toggle_mute(slice_num, !is_muted); 
+                update_display_music(ssd, frame_area, music_name);
                 printf("Mudo: %s\n", is_muted ? "LIGADO" : "DESLIGADO");
-                pwm_set_enabled(slice_num, !is_muted); 
-                sleep_ms(200); // Debounce
+                sleep_ms(200); 
             }
             prev_sw = btn_sw;
         
@@ -182,6 +256,7 @@ void play(int slice_num, int melodie[][2], int size, int tempo, const char *musi
                     if (volume_level < 0.0) volume_level = 0.0; 
                     pwm_set_chan_level(slice_num, pwm_gpio_to_channel(21), (uint)(current_wrap * volume_level * 0.6));
                     printf("Volume diminuído para %.2f\n", volume_level);
+                    update_volume_leds();
                     sleep_ms(200);
                 }
                 if (btn_vol_up && !prev_vol_up) {
@@ -189,6 +264,7 @@ void play(int slice_num, int melodie[][2], int size, int tempo, const char *musi
                     if (volume_level > 1.0) volume_level = 1.0; 
                     pwm_set_chan_level(slice_num, pwm_gpio_to_channel(21), (uint)(current_wrap * volume_level * 0.6));
                     printf("Volume aumentado para %.2f\n", volume_level);
+                    update_volume_leds();
                     sleep_ms(200); 
                 }
             }
@@ -199,7 +275,7 @@ void play(int slice_num, int melodie[][2], int size, int tempo, const char *musi
         }
 
         if (stop_music || stop_note) {
-            pwm_set_enabled(slice_num, false);
+            toggle_mute(slice_num, true); 
             stop_music = false;
             set_led_color(0, 0, 0);
             reset_display(ssd, frame_area); 
@@ -210,34 +286,60 @@ void play(int slice_num, int melodie[][2], int size, int tempo, const char *musi
         sleep_ms(noteDuration / 10);
     }
 
+    toggle_mute(slice_num, true); 
     reset_display(ssd, frame_area); 
 }
 
+// Enum para identificar as músicas
+typedef enum {
+    PINK_PANTHER,
+    NEVER_GONNA_GIVE_YOU_UP,
+    THE_GODFATHER,
+    DARTH_VADER
+} song_id;
 
-// Funções para tocar cada música
-void play_pink_panther(int slice_num, uint8_t *ssd, struct render_area *frame_area) {
-    int size = sizeof(PinkPanther) / sizeof(PinkPanther[0]);
-    play(slice_num, PinkPanther, size, 120, "Pink Panther", ssd, frame_area); // Tempo 120 BPM
-}
+void play_music(song_id song, int slice_num, uint8_t *ssd, struct render_area *frame_area) {
+    int size;
+    int tempo;
+    const char *name;
+    int (*melody)[2];
 
-void play_never_gonna_give_you_up(int slice_num, uint8_t *ssd, struct render_area *frame_area) {
-    int size = sizeof(NeverGonnaGiveYouUp) / sizeof(NeverGonnaGiveYouUp[0]);
-    play(slice_num, NeverGonnaGiveYouUp, size, 114, "Never Gonna Give You Up", ssd, frame_area); // Tempo 114 BPM
-}
-
-void play_the_godfather(int slice_num, uint8_t *ssd, struct render_area *frame_area) {
-    int size = sizeof(TheGodfather) / sizeof(TheGodfather[0]);
-    play(slice_num, TheGodfather, size, 80, "The Godfather", ssd, frame_area); // Tempo 80 BPM
-}
-
-void play_darth_vader(int slice_num, uint8_t *ssd, struct render_area *frame_area) {
-    int size = sizeof(DarthVader) / sizeof(DarthVader[0]);
-    play(slice_num, DarthVader, size, 120, "Darth Vader", ssd, frame_area); // Tempo 120 BPM
+    switch(song) {
+        case PINK_PANTHER:
+            melody = PinkPanther;
+            size = sizeof(PinkPanther) / sizeof(PinkPanther[0]);
+            tempo = 120;
+            name = "Pink Panther";
+            break;
+            
+        case NEVER_GONNA_GIVE_YOU_UP:
+            melody = NeverGonnaGiveYouUp;
+            size = sizeof(NeverGonnaGiveYouUp) / sizeof(NeverGonnaGiveYouUp[0]);
+            tempo = 114;
+            name = "Never Gonna Give You Up";
+            break;
+            
+        case THE_GODFATHER:
+            melody = TheGodfather;
+            size = sizeof(TheGodfather) / sizeof(TheGodfather[0]);
+            tempo = 80;
+            name = "The Godfather";
+            break;
+            
+        case DARTH_VADER:
+            melody = DarthVader;
+            size = sizeof(DarthVader) / sizeof(DarthVader[0]);
+            tempo = 120;
+            name = "Darth Vader";
+            break;
+    }  
+    play(slice_num, melody, size, tempo, name, ssd, frame_area);
 }
 
 int main() {
     stdio_init_all();
-    init_led();
+    init_all();
+    npInit(LED_PIN);
 
     // Inicializa o PWM
     gpio_set_function(21, GPIO_FUNC_PWM);
@@ -247,14 +349,14 @@ int main() {
     pwm_init(slice_num, &config, true);
     pwm_set_gpio_level(21, 0);
 
+    toggle_mute(slice_num, true);
+
     // Inicializa o I2C para o display
     i2c_init(i2c1, ssd1306_i2c_clock * 1000);
     gpio_set_function(14, GPIO_FUNC_I2C); // SDA
     gpio_set_function(15, GPIO_FUNC_I2C); // SCL
     gpio_pull_up(14);
     gpio_pull_up(15);
-
-    init_input();
     ssd1306_init();
 
     struct render_area frame_area = {
@@ -279,53 +381,38 @@ int main() {
     while (1) {
         uint16_t vrx_value, vry_value;
         joystick_read_axis(&vrx_value, &vry_value);
-
-        static bool prev_sw = true;
-        bool btn_sw = !gpio_get(SW);
-        if (btn_sw && !prev_sw) {
-            is_muted = !is_muted;
-            pwm_set_enabled(slice_num, !is_muted); 
-            printf("Mudo: %s\n", is_muted ? "LIGADO" : "DESLIGADO");
-            sleep_ms(200);
-        }
-        prev_sw = btn_sw;
-
-        if (is_muted && check_sound_trigger()) {
-            is_muted = false;
-            pwm_set_enabled(slice_num, true);
-            printf("Mudo DESLIGADO por detecção de som!\n");
-            sleep_ms(1000); 
-        }
     
-        // Seleciona a música com base na posição do joystick
         if (!music_playing) {
             if (vrx_value < 1000) {
                 printf("Pink Panther\n");
-                set_led_color(1, 0, 1); // Rosa 
+                set_led_color(1, 0, 1);
                 music_playing = true;
-                play_pink_panther(slice_num, ssd, &frame_area);
+                toggle_mute(slice_num, false);
+                play_music(PINK_PANTHER, slice_num, ssd, &frame_area);
                 music_playing = false;
             } else if (vrx_value > 3000) {
                 printf("Never Gonna Give You Up\n");
-                set_led_color(0, 1, 0); // Verde
+                set_led_color(0, 1, 0);
                 music_playing = true;
-                play_never_gonna_give_you_up(slice_num, ssd, &frame_area);
+                toggle_mute(slice_num, false);
+                play_music(NEVER_GONNA_GIVE_YOU_UP, slice_num, ssd, &frame_area);
                 music_playing = false;
             } else if (vry_value < 1000) {
                 printf("The Godfather\n");
-                set_led_color(1, 1, 1); // Branco 
+                set_led_color(1, 1, 1);
                 music_playing = true;
-                play_the_godfather(slice_num, ssd, &frame_area);
+                toggle_mute(slice_num, false);
+                play_music(THE_GODFATHER, slice_num, ssd, &frame_area);
                 music_playing = false;
             } else if (vry_value > 3000) {
                 printf("Darth Vader\n");
-                set_led_color(1, 0, 0); // Vermelho
+                set_led_color(1, 0, 0);
                 music_playing = true;
-                play_darth_vader(slice_num, ssd, &frame_area);
+                toggle_mute(slice_num, false);
+                play_music(DARTH_VADER, slice_num, ssd, &frame_area);
                 music_playing = false;
             }
         }
-    
-        sleep_ms(100); 
+        sleep_ms(100);
     }
 }
