@@ -334,9 +334,6 @@ void play_music(song_id song, int slice_num, uint8_t *ssd, struct render_area *f
     play(slice_num, melody, size, tempo, name, ssd, frame_area);
 }
 
-/*=============================================
-=               FUNÇÃO PRINCIPAL             =
-=============================================*/
 int main() {
     stdio_init_all();
     init_all();
