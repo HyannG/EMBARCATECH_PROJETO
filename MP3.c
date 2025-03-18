@@ -14,43 +14,47 @@
 #include <stdio.h>
 #include "hardware/pio.h"
 #include "ws2818b.pio.h"
-#define LED_COUNT 25
-#define LED_PIN 7
 
-struct pixel_t {
-    uint8_t G, R, B;
-};
-typedef struct pixel_t pixel_t;
-pixel_t leds[LED_COUNT];
+const int LED_COUNT = 25;
+const int LED_PIN = 7;
 
-PIO np_pio;
-uint sm;
-
-// PINOS
 const int VRX = 26;          
 const int VRY = 27;          
-const int ADC_CHANNEL_0 = 0;
-const int ADC_CHANNEL_1 = 1; 
 const int SW = 22;          
 const int BTN_VOL_DOWN = 5;  
 const int BTN_VOL_UP = 6;    
 const int LED_RED = 13;
 const int LED_GREEN = 11;
 const int LED_BLUE = 12;
-bool stop_music = false;     
-float volume_level = 0.5;    
-uint32_t current_wrap = 0;
-#define MIC_PIN 28               
-const float SOUND_OFFSET = 1.65; 
-const float SOUND_THRESHOLD = 0.5; 
-const float ADC_REF = 3.3;         
-const int ADC_RES = 4095;    
+const int MIC_PIN = 28;              
 
+
+const int ADC_CHANNEL_0 = 0;
+const int ADC_CHANNEL_1 = 1;
+const int ADC_RES = 4095;    
+const float ADC_REF = 3.3f;  
+
+
+const float SOUND_OFFSET = 1.65f; 
+const float SOUND_THRESHOLD = 0.5f; 
+
+struct pixel_t {
+    uint8_t G, R, B;
+};
+typedef struct pixel_t pixel_t;
+
+pixel_t leds[LED_COUNT];
+PIO np_pio;
+uint sm;
+
+// Estados do sistema
+bool stop_music = false;     
+float volume_level = 0.5f;    
+uint32_t current_wrap = 0;
 bool music_playing = false;  
 bool is_muted = false;
 
-// funções da matriz de led
-
+// Funções matriz de led
 void npInit(uint pin) {
     uint offset = pio_add_program(pio0, &ws2818b_program);
     np_pio = pio0;
@@ -77,7 +81,8 @@ void npWrite() {
     }
 }
 
-// Inicializar os sensores e atenuadores
+// Funções para iniciar o hardware
+
 void init_all() {
     gpio_init(LED_RED);
     gpio_init(LED_GREEN);
@@ -85,21 +90,17 @@ void init_all() {
     gpio_set_dir(LED_RED, GPIO_OUT);
     gpio_set_dir(LED_GREEN, GPIO_OUT);
     gpio_set_dir(LED_BLUE, GPIO_OUT);
-    gpio_put(LED_RED, 0);
-    gpio_put(LED_GREEN, 0);
-    gpio_put(LED_BLUE, 0);
 
     adc_init();         
     adc_gpio_init(VRX); 
     adc_gpio_init(VRY); 
+    
     gpio_init(SW);      
     gpio_set_dir(SW, GPIO_IN); 
     gpio_pull_up(SW);  
-
     gpio_init(BTN_VOL_DOWN);          
     gpio_set_dir(BTN_VOL_DOWN, GPIO_IN); 
     gpio_pull_up(BTN_VOL_DOWN);       
-
     gpio_init(BTN_VOL_UP);          
     gpio_set_dir(BTN_VOL_UP, GPIO_IN); 
     gpio_pull_up(BTN_VOL_UP);
@@ -108,40 +109,42 @@ void init_all() {
     adc_select_input(2);     
 }
 
-// Seta a cor do LED RGB
+// CONTROLE DE ÁUDIO
+
+void pwm_set_freq(int freq) {
+    uint slice_num = pwm_gpio_to_slice_num(21);
+    uint chan = pwm_gpio_to_channel(21);
+    uint32_t clock = 125000000; // 125 MHz
+    uint32_t divider16 = clock / freq / 4096 + (clock % (freq * 4096) != 0);
+    if (divider16 / 16 == 0) divider16 = 16;
+    uint32_t wrap = clock * 16 / divider16 / freq - 1;
+    current_wrap = wrap;
+    pwm_set_clkdiv_int_frac(slice_num, divider16 / 16, divider16 & 0xF);
+    pwm_set_wrap(slice_num, wrap);
+    pwm_set_chan_level(slice_num, chan, (uint)(current_wrap * volume_level * 0.6f));
+}
+
+void toggle_mute(uint slice_num, bool mute) {
+    is_muted = mute;
+    if (is_muted) {
+        pwm_set_enabled(slice_num, false); 
+        pwm_set_gpio_level(21, 0); 
+        gpio_set_dir(21, GPIO_IN);
+    } else {
+        gpio_set_dir(21, GPIO_OUT); 
+        pwm_set_enabled(slice_num, true); 
+    }
+    update_volume_leds();
+}
+
+// Controle Led
+
 void set_led_color(bool red, bool green, bool blue) {
     gpio_put(LED_RED, red);
     gpio_put(LED_GREEN, green);
     gpio_put(LED_BLUE, blue);
 }
 
-// Pega a posição do joystick
-void joystick_read_axis(uint16_t *vrx_value, uint16_t *vry_value) {
-    adc_select_input(ADC_CHANNEL_0); 
-    sleep_us(2);                     
-    *vrx_value = adc_read();         
-    adc_select_input(ADC_CHANNEL_1); 
-    sleep_us(2);                     
-    *vry_value = adc_read();         
-}
-
-// Ajusta a frequência e volume
-void pwm_set_freq(int freq) {
-    uint slice_num = pwm_gpio_to_slice_num(21);
-    uint chan = pwm_gpio_to_channel(21);
-    uint32_t clock = 125000000; // 125 MHz
-    uint32_t divider16 = clock / freq / 4096 + (clock % (freq * 4096) != 0);
-    if (divider16 / 16 == 0)
-        divider16 = 16;
-    uint32_t wrap = clock * 16 / divider16 / freq - 1;
-    current_wrap = wrap;
-    pwm_set_clkdiv_int_frac(slice_num, divider16 / 16, divider16 & 0xF);
-    pwm_set_wrap(slice_num, wrap);
-    pwm_set_chan_level(slice_num, chan, (uint)(current_wrap * volume_level * 0.6));
-}
-
-
-// Exibição do volume pela matriz de led
 void update_volume_leds() {
     npClear();
     if (!is_muted) {
@@ -158,41 +161,34 @@ void update_volume_leds() {
     npWrite();
 }
 
-// Função para ativar/desativar o mudo
-void toggle_mute(uint slice_num, bool mute) {
-    is_muted = mute;
-    if (is_muted) {
-        pwm_set_enabled(slice_num, false); 
-        pwm_set_gpio_level(21, 0); 
-        gpio_set_dir(21, GPIO_IN); // Configura o pino como entrada para evitar ruídos
-    } else {
-        gpio_set_dir(21, GPIO_OUT); 
-        pwm_set_enabled(slice_num, true); 
-    }
-    update_volume_leds();
-    printf("Mudo: %s\n", is_muted ? "LIGADO" : "DESLIGADO");
-}
+// Controle display
 
-// Função para atualizar o display com o nome da música
 void update_display_music(uint8_t *ssd, struct render_area *frame_area, const char *music_name) {
-    memset(ssd, 0, ssd1306_buffer_length); // Limpa o display
+    memset(ssd, 0, ssd1306_buffer_length);
     ssd1306_draw_string(ssd, 0, 0, "MP3 PLAYER");
     ssd1306_draw_string(ssd, 0, 16, music_name); 
-    if (is_muted) {
-        ssd1306_draw_string(ssd, 0, 32, "Mudo"); 
-    }
+    if (is_muted) ssd1306_draw_string(ssd, 0, 32, "Mudo"); 
     render_on_display(ssd, frame_area);
 }
 
-// Função para resetar o display
 void reset_display(uint8_t *ssd, struct render_area *frame_area) {
-    memset(ssd, 0, ssd1306_buffer_length); // Limpa o display
+    memset(ssd, 0, ssd1306_buffer_length);
     ssd1306_draw_string(ssd, 0, 0, "MP3 PLAYER");
     ssd1306_draw_string(ssd, 0, 16, "Embarcatech"); 
     render_on_display(ssd, frame_area);
 }
 
-// função para desmutar com sons
+// Leitura de entrada
+
+void joystick_read_axis(uint16_t *vrx_value, uint16_t *vry_value) {
+    adc_select_input(ADC_CHANNEL_0); 
+    sleep_us(2);                     
+    *vrx_value = adc_read();         
+    adc_select_input(ADC_CHANNEL_1); 
+    sleep_us(2);                     
+    *vry_value = adc_read();         
+}
+
 bool check_sound_trigger() {
     adc_select_input(2);
     uint16_t raw_adc = adc_read();
@@ -201,7 +197,8 @@ bool check_sound_trigger() {
     return (sound_level > SOUND_THRESHOLD);
 }
 
-// Toca as notas da música selecionada
+// Função principal 
+
 void play(int slice_num, int melodie[][2], int size, int tempo, const char *music_name, uint8_t *ssd, struct render_area *frame_area) {
     static bool prev_vol_down = false;
     static bool prev_vol_up = false;
@@ -297,6 +294,8 @@ typedef enum {
     DARTH_VADER
 } song_id;
 
+// Função para tocar faixas
+
 void play_music(song_id song, int slice_num, uint8_t *ssd, struct render_area *frame_area) {
     int size;
     int tempo;
@@ -335,6 +334,9 @@ void play_music(song_id song, int slice_num, uint8_t *ssd, struct render_area *f
     play(slice_num, melody, size, tempo, name, ssd, frame_area);
 }
 
+/*=============================================
+=               FUNÇÃO PRINCIPAL             =
+=============================================*/
 int main() {
     stdio_init_all();
     init_all();
@@ -350,7 +352,7 @@ int main() {
 
     toggle_mute(slice_num, true);
 
-    // Inicializa o I2C para o display
+    // Inicializa o I2C 
     i2c_init(i2c1, ssd1306_i2c_clock * 1000);
     gpio_set_function(14, GPIO_FUNC_I2C); // SDA
     gpio_set_function(15, GPIO_FUNC_I2C); // SCL
@@ -372,7 +374,7 @@ int main() {
     memset(ssd, 0, ssd1306_buffer_length);
     render_on_display(ssd, &frame_area);
 
-    // Mensagem inicial
+    // Mensagem inicial display
     ssd1306_draw_string(ssd, 0, 0, "MP3 PLAYER");
     ssd1306_draw_string(ssd, 0, 16, "Embarcatech");
     render_on_display(ssd, &frame_area);
