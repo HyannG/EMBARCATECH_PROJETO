@@ -1,119 +1,106 @@
 # EMBARCATECH_PROJETO
 
-Este projeto implementa um MP3 Player simples, utilizando o Raspberry Pi Pico W. Ele reproduz notas musicais pelo Buzzer Passivo da placa e é capaz de:
+Este projeto implementa um MP3 Player utilizando o Raspberry Pi Pico W. Ele reproduz músicas por meio de um buzzer passivo e possui:
 
-- Reproduzir 4 músicas diferentes: Tema do Darth Vader, Tema da Pantera Cor de Rosa, Tema do Poderoso Chefão e Never Gonna Give You Up.
-- Enquanto a música toca, o LED brilha em uma cor referente à música.
-- Aumentar o volume.
-- Diminuir o volume.
-- Parar a música.
+- Reprodução de 4 músicas: Tema de Darth Vader, Pantera Cor-de-Rosa, Poderoso Chefão e Never Gonna Give You Up
+- Controle por joystick para seleção de músicas
+- Sistema de volume com feedback visual na matriz de LEDs
+- Modo mudo ativável por botão ou som ambiente
+- Interface visual em display OLED
+- LEDs RGB indicativos de estado
 
 ---
 
-## Funcionalidades
+## Funcionalidades Principais
 
-- Tocar quatro faixas diferentes.
-- O usuário escolhe qual música irá tocar pela direção do joystick.
-- Aumentar volume.
-- Diminuir volume.
-- Interromper a reprodução.
-- O LED RGB brilha em uma cor dependendo da música selecionada.
+- ▶️ Reprodução de 4 faixas musicais
+- 🎛️ Controle de volume com botões dedicados
+- 🔇 Modo mudo ativável por clique no joystick
+- 🔊 Desmutar automático por detecção de som ambiente
+- 🌈 LED RGB com cor específica para cada música
+- 📊 Matriz de LEDs como indicador de volume
+- 🖥️ Display OLED com informações da faixa
+- ⏹️ Parar reprodução com combinação de botões
 
 ---
 
 ## Hardware Utilizado
 
 - Raspberry Pi Pico W
-- Joystick
-- Buzzer Passivo
-- Botão A
-- Botão B
+- Joystick analógico
+- Buzzer passivo
+- Botões para volume (2 unidades)
 - LED RGB
+- Microfone analógico
+- Matriz de LEDs WS2812B (5x5)
+- Display OLED 128x32 (I2C)
+- Conversor ADC
+- Circuito PWM para áudio
 
 ---
 
 ## Software Utilizado
 
 - Raspberry Pi Pico SDK
-- C
+- Linguagem C
 - Visual Studio Code
-- hardware/adc
-- hardware/pwm
-- hardware/gpio
-- pico/time
+- Bibliotecas:
+  - `hardware/adc`
+  - `hardware/pwm`
+  - `hardware/i2c`
+  - `pico/time`
+  - `ssd1306` (display)
+  - `ws2818b` (LEDs endereçáveis)
 
 ---
 
-## Manual de Utilização
+## Manual de Operação
 
-### Controles e Funcionalidades
+### Controles e Interface
 
-O MP3 Player implementado no Raspberry Pi Pico W pode ser controlado por meio de um joystick e dois botões. Abaixo estão as instruções detalhadas para interagir com o dispositivo:
+1. **Seleção de Música (Joystick)**:
+   - ⬅️ Esquerda: Tema do Poderoso Chefão (LED branco)
+   - ➡️ Direita: Tema de Darth Vader (LED vermelho)
+   - ⬆️ Cima: Never Gonna Give You Up (LED verde)
+   - ⬇️ Baixo: Pantera Cor-de-Rosa (LED rosa)
 
-#### Botões
+2. **Controle de Volume**:
+   - 🔽 Botão A (GPIO 5): Diminui volume em 25%
+   - 🔼 Botão B (GPIO 6): Aumenta volume em 25%
+   - ⏹️ A+B: Para a reprodução atual
 
-- **Botão A**  
-  - **Ação**: Diminuir o volume.  
-  - **Uso**: Pressione o botão A uma vez para reduzir o volume da música em reprodução.  
+3. **Modo Mudo**:
+   - 🔘 Clique no joystick: Alterna entre mudo/volume
+   - 🎤 Som ambiente: Detecção automática de som alto desativa o mudo
 
-- **Botão B**  
-  - **Ação**: Aumentar o volume.  
-  - **Uso**: Pressione o botão B uma vez para aumentar o volume da música em reprodução.  
-
-- **Botão A + Botão B (pressionados simultaneamente)**  
-  - **Ação**: Parar a reprodução da música.  
-  - **Uso**: Pressione ambos os botões ao mesmo tempo para interromper a música que está tocando.  
-
-#### Joystick
-
-O joystick é utilizado para selecionar a música a ser reproduzida. Cada direção do joystick corresponde a uma música específica:
-
-- **Joystick para cima**  
-  - **Música**: *Never Gonna Give You Up*.  
-  - **LED**: Brilha em verde.  
-
-- **Joystick para baixo**  
-  - **Música**: *Tema da Pantera Cor de Rosa*.  
-  - **LED**: Brilha em rosa.  
-
-- **Joystick para a esquerda**  
-  - **Música**: *Tema do Poderoso Chefão*.  
-  - **LED**: Brilha em branco.  
-
-- **Joystick para a direita**  
-  - **Música**: *Tema do Darth Vader*.  
-  - **LED**: Brilha em vermelho.  
-
-### LED RGB
-
-O LED RGB indica qual música está sendo reproduzida por meio de cores específicas. Cada música selecionada pelo joystick faz com que o LED brilhe em uma cor correspondente.
+4. **Feedback Visual**:
+   - 🟥 Matriz de LEDs: Exibe 5 níveis de volume
+   - 🟢 Display OLED: Mostra nome da música e estado do mudo
+   - 🌈 LED RGB: Indica música selecionada
 
 ---
 
-### Exemplo de Uso
+## Diagrama de Conexões
 
-1. **Selecionar uma música**: Mova o joystick na direção desejada para escolher uma música. O LED RGB acenderá na cor correspondente à música selecionada.
-2. **Ajustar o volume**: Utilize os botões A e B para diminuir ou aumentar o volume, respectivamente.
-3. **Parar a música**: Pressione os botões A e B simultaneamente para interromper a reprodução.
-
----
-
-### Diagrama de Conexões
-
-| Componente | Pino no Raspberry Pi Pico W |
-|------------|-----------------------------|
-| Buzzer | GPIO 21 |
-| LED RGB (R) | GPIO 13 |
-| LED RGB (G) | GPIO 11 |
-| LED RGB (B) | GPIO 12 |
-| Joystick (X) | ADC0 (GPIO 26) |
-| Joystick (Y) | ADC1 (GPIO 27) |
-| Botão A | GPIO 5 |
-| Botão B | GPIO 6 |
+| Componente       | Pino no Pico W |
+|------------------|----------------|
+| Buzzer           | GPIO 21        |
+| LED RGB (R)      | GPIO 13        |
+| LED RGB (G)      | GPIO 11        |
+| LED RGB (B)      | GPIO 12        |
+| Joystick (X)     | ADC0 (GPIO 26) |
+| Joystick (Y)     | ADC1 (GPIO 27) |
+| Botão Volume -   | GPIO 5         |
+| Botão Volume +   | GPIO 6         |
+| Matriz de LEDs   | GPIO 7         |
+| Display OLED SDA | GPIO 14        |
+| Display OLED SCL | GPIO 15        |
+| Microfone        | ADC2 (GPIO 28) |
 
 ---
 
-# Estrutura do Projeto
+## Estrutura do Projeto
+
 
 - **PROJETO_EMBARCADO/**  
   - **vscode/** # Configurações do Visual Studio Code  
@@ -123,12 +110,6 @@ O LED RGB indica qual música está sendo reproduzida por meio de cores específ
   - **notas.h** # Header com definições de notas musicais  
   - **PROJETO_EMBARCADO.c** # Código principal do projeto  
   - **README.md** # Documentação do projeto  
-
-## Fluxograma para utilização da placa
-
-![Fluxograma](https://github.com/user-attachments/assets/507f6d8f-365f-49bd-a7e2-6e2554eded47)
-
-## LINK DO GITHUB
 
 [Repositório no GitHub](https://github.com/HyannG/EMBARCATECH_PROJETO)
 
