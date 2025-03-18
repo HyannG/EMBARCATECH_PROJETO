@@ -111,5 +111,4 @@ Este projeto implementa um MP3 Player utilizando o Raspberry Pi Pico W. Ele repr
   - **PROJETO_EMBARCADO.c** # Código principal do projeto  
   - **README.md** # Documentação do projeto  
 
-[Repositório no GitHub](https://github.com/HyannG/EMBARCATECH_PROJETO)
 
