@@ -49,7 +49,7 @@ uint sm;
 
 // Estados do sistema
 bool stop_music = false;     
-float volume_level = 0.5f;    
+float volume_level = 0.8f;    
 uint32_t current_wrap = 0;
 bool music_playing = false;  
 bool is_muted = false;
@@ -199,11 +199,11 @@ bool check_sound_trigger() {
 
 // Função principal 
 
-void play(int slice_num, int melodie[][2], int size, int tempo, const char *music_name, uint8_t *ssd, struct render_area *frame_area) {
+void play(int slice_num, int melodie[][2], int size, int time, const char *music_name, uint8_t *ssd, struct render_area *frame_area) {
     static bool prev_vol_down = false;
     static bool prev_vol_up = false;
     static bool prev_sw = true;
-    int wholenote = (60000 * 4) / tempo;
+    int wholenote = (60000 * 4) / time;
 
     update_display_music(ssd, frame_area, music_name);
 
@@ -298,7 +298,7 @@ typedef enum {
 
 void play_music(song_id song, int slice_num, uint8_t *ssd, struct render_area *frame_area) {
     int size;
-    int tempo;
+    int time;
     const char *name;
     int (*melody)[2];
 
@@ -306,32 +306,32 @@ void play_music(song_id song, int slice_num, uint8_t *ssd, struct render_area *f
         case PINK_PANTHER:
             melody = PinkPanther;
             size = sizeof(PinkPanther) / sizeof(PinkPanther[0]);
-            tempo = 120;
+            time = 120;
             name = "Pink Panther";
             break;
             
         case NEVER_GONNA_GIVE_YOU_UP:
             melody = NeverGonnaGiveYouUp;
             size = sizeof(NeverGonnaGiveYouUp) / sizeof(NeverGonnaGiveYouUp[0]);
-            tempo = 114;
+            time = 114;
             name = "Never Gonna Give You Up";
             break;
             
         case THE_GODFATHER:
             melody = TheGodfather;
             size = sizeof(TheGodfather) / sizeof(TheGodfather[0]);
-            tempo = 80;
+            time = 80;
             name = "The Godfather";
             break;
             
         case DARTH_VADER:
             melody = DarthVader;
             size = sizeof(DarthVader) / sizeof(DarthVader[0]);
-            tempo = 120;
+            time = 120;
             name = "Darth Vader";
             break;
     }  
-    play(slice_num, melody, size, tempo, name, ssd, frame_area);
+    play(slice_num, melody, size, time, name, ssd, frame_area);
 }
 
 int main() {
